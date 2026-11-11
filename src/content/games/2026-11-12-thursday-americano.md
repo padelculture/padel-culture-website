@@ -1,7 +1,7 @@
 ---
 title: Thursday Night Americano
-date: 2026-11-12T21:00:00+05:30
-endTime: "22:30"
+date: 2026-11-12T21:30:00+05:30
+endTime: "23:00"
 venue: Skyball Club, Pitampura
 area: Pitampura
 format: Americano
