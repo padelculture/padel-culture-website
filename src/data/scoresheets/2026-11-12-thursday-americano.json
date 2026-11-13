@@ -1,0 +1,23 @@
+{
+  "gameId": "2026-11-12-thursday-americano",
+  "title": "Thursday Night Americano",
+  "date": "2026-11-12",
+  "format": "americano",
+  "note": "Race to 24, 7 rounds, 2 courts. Fixtures sheet + whiteboard scores.",
+  "matches": [
+    { "round": 1, "a": ["Prabhkirat", "Aditya"], "sa": 9,  "b": ["Sagar", "Saatvik"],  "sb": 15 },
+    { "round": 1, "a": ["Gaurav", "Manav"],      "sa": 15, "b": ["Bhavya", "Rajat"],   "sb": 9 },
+    { "round": 2, "a": ["Prabhkirat", "Sagar"],  "sa": 17, "b": ["Gaurav", "Bhavya"],  "sb": 7 },
+    { "round": 2, "a": ["Aditya", "Saatvik"],    "sa": 8,  "b": ["Manav", "Rajat"],    "sb": 16 },
+    { "round": 3, "a": ["Prabhkirat", "Saatvik"],"sa": 12, "b": ["Gaurav", "Rajat"],   "sb": 12 },
+    { "round": 3, "a": ["Aditya", "Sagar"],      "sa": 5,  "b": ["Manav", "Bhavya"],   "sb": 19 },
+    { "round": 4, "a": ["Sagar", "Bhavya"],      "sa": 7,  "b": ["Saatvik", "Rajat"],  "sb": 17 },
+    { "round": 4, "a": ["Prabhkirat", "Gaurav"], "sa": 11, "b": ["Aditya", "Manav"],   "sb": 13 },
+    { "round": 5, "a": ["Prabhkirat", "Manav"],  "sa": 12, "b": ["Sagar", "Rajat"],    "sb": 12 },
+    { "round": 5, "a": ["Aditya", "Gaurav"],     "sa": 10, "b": ["Saatvik", "Bhavya"], "sb": 14 },
+    { "round": 6, "a": ["Aditya", "Rajat"],      "sa": 10, "b": ["Sagar", "Gaurav"],   "sb": 14 },
+    { "round": 6, "a": ["Prabhkirat", "Bhavya"], "sa": 7,  "b": ["Saatvik", "Manav"],  "sb": 17 },
+    { "round": 7, "a": ["Sagar", "Manav"],       "sa": 12, "b": ["Saatvik", "Gaurav"], "sb": 12 },
+    { "round": 7, "a": ["Prabhkirat", "Rajat"],  "sa": 12, "b": ["Aditya", "Bhavya"],  "sb": 12 }
+  ]
+}

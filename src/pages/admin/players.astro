@@ -16,11 +16,14 @@ const games = (await getCollection('games')).map((g) => ({
   status: g.data.status,
   paymentLink: g.data.paymentLink || (site as { paymentLink?: string }).paymentLink || '',
 }));
+const sheets = Object.values(import.meta.glob('../../data/scoresheets/*.json', { eager: true, import: 'default' }))
+  .sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)));
 ---
 <Base title="Dashboard | Padel Culture admin" description="Padel Culture organiser dashboard">
   <meta name="robots" content="noindex" slot="head" />
   <script type="application/json" id="fb-config" set:html={JSON.stringify(fb)} />
   <script type="application/json" id="games-data" set:html={JSON.stringify(games)} />
+  <script type="application/json" id="sheets-data" set:html={JSON.stringify(sheets)} />
   <main class="wrap admin">
     <header class="ahead">
       <a href="/" class="brand"><img src="/brand/padel-culture-logo-circle.svg" alt="" width="36" height="36" /> Padel Culture</a>
@@ -114,6 +117,7 @@ const games = (await getCollection('games')).map((g) => ({
       <div class="tabpanel" id="tab-scores" hidden>
         <h1>Scores &amp; ratings</h1>
         <p class="muted how">Enter every match from a session in the order it was played. For each match, the expected result comes from all four players' ratings (team averages). Beat it and your rating goes up; fall short and it goes down. How far it moves depends on the format (Americano 0.60, Mexicano 0.75, King of the Court 0.40, Tournament 1.00 × tier), the match length, and each player's reliability: new players move fast, established ones slowly, and results against unproven players count less. For tournaments, enter total games won by each team. Players without a rating start at 2.00.</p>
+        <div id="sc-sheets" class="sc-sheets" hidden></div>
         <div class="sess">
           <label>Session<select id="sc-game"></select></label>
           <label>Name<input id="sc-title" placeholder="e.g. Thursday Night Americano" /></label>
@@ -728,9 +732,49 @@ const games = (await getCollection('games')).map((g) => ({
         $('sc-err').hidden = false;
       }
     });
+    // ---------- Prepared scoresheets (fixtures + scores typed in from the board) ----------
+    const SHEETS = JSON.parse($('sheets-data').textContent || '[]');
+    const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z ]/g, '').trim();
+    function findPlayer(label) {
+      const n = norm(label);
+      const exact = players.filter((x) => norm(x.name) === n);
+      if (exact.length === 1) return exact[0].id;
+      const first = players.filter((x) => norm(x.name).split(' ')[0] === n.split(' ')[0]);
+      return first.length === 1 ? first[0].id : '';
+    }
+    function renderSheets(sessions) {
+      const done = new Set((sessions || []).map((x) => x.gameId).filter(Boolean));
+      const todo = SHEETS.filter((x) => !done.has(x.gameId));
+      $('sc-sheets').hidden = !todo.length;
+      $('sc-sheets').innerHTML = todo.map((x, i) => `<div class="sheet"><div><strong>Ready to enter: ${esc(x.title)}</strong><span class="muted"> · ${esc(x.date)} · ${x.matches.length} matches</span></div><button type="button" class="btn btn-solid" data-sheet="${SHEETS.indexOf(x)}">Fill in matches</button></div>`).join('');
+    }
+    $('sc-sheets').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-sheet]');
+      if (!b) return;
+      const x = SHEETS[+b.dataset.sheet];
+      if ([...$('sc-game').options].some((o) => o.value === x.gameId)) $('sc-game').value = x.gameId;
+      $('sc-title').value = x.title; $('sc-date').value = x.date; $('sc-format').value = x.format || 'americano';
+      $('sc-tier-l').hidden = $('sc-format').value !== 'tournament';
+      $('sc-matches').innerHTML = '';
+      const missing = new Set();
+      x.matches.forEach((m) => {
+        const ids = [...m.a, ...m.b].map((nm) => { const id = findPlayer(nm); if (!id) missing.add(nm); return id; });
+        addMatch({ a: ids.slice(0, 2), b: ids.slice(2), sa: m.sa, sb: m.sb });
+      });
+      $('sc-matches').querySelectorAll('select').forEach((sel) => sel.classList.toggle('miss', !sel.value));
+      $('sc-out').hidden = true;
+      $('sc-err').textContent = missing.size
+        ? `Filled ${x.matches.length} matches. Couldn't tell who these are, so choose them in the highlighted boxes: ${[...missing].join(', ')}. Then tap Preview.`
+        : `Filled ${x.matches.length} matches. Check the names, then tap Preview rating changes.`;
+      $('sc-err').hidden = false;
+      $('sc-matches').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    $('sc-matches').addEventListener('change', (e) => { if (e.target.tagName === 'SELECT') e.target.classList.toggle('miss', !e.target.value); });
+
     async function loadSessions() {
       try {
         const list = await fb.listSessions();
+        renderSheets(list);
         const byId = Object.fromEntries(players.map((x) => [x.id, x]));
         $('sc-history').innerHTML = list.length ? list.map((s) => {
           const res = Object.entries(s.results || {}).sort((a, b) => b[1].delta - a[1].delta);
@@ -740,6 +784,7 @@ const games = (await getCollection('games')).map((g) => ({
         }).join('') : '<p class="muted">No sessions entered yet.</p>';
       } catch (e) {
         console.error(e);
+        renderSheets([]);
         $('sc-history').innerHTML = '<p class="muted">Past sessions will show here once the updated Firestore rules are published.</p>';
       }
     }
@@ -894,6 +939,9 @@ const games = (await getCollection('games')).map((g) => ({
   .matches :global(.rm) { background: none; border: 0; color: var(--mist); cursor: pointer; font-size: 1rem; }
   #sc-out { display: grid; gap: 1rem; }
   #sc-out[hidden] { display: none; }
+  .sc-sheets { display: grid; gap: 0.6rem; margin-bottom: 1rem; }
+  .sc-sheets :global(.sheet) { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; justify-content: space-between; padding: 0.9rem 1rem; border: 1px solid var(--sage, #6b8f71); border-radius: 8px; background: var(--pine); }
+  .matches :global(select.miss) { outline: 2px solid #d9822b; }
   .sc-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; }
   .table-wrap :global(td.num), th.num { text-align: right; }
   .table-wrap :global(.up) { color: #2F6B2A; font-weight: 600; }
