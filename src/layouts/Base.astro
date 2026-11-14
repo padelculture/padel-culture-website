@@ -24,7 +24,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:image" content={new URL('/brand/padel-culture-logo-square.png', Astro.site)} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" />
     <slot name="head" />
     {jsonld.map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
   </head>
@@ -41,11 +41,11 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     --moss: #E8ECDF;     /* chips, hover fills: pale sage */
     --olive: #5E7340;    /* brand olive, deepened for contrast on pastel */
     --sage: #2F4A22;     /* links, hover, net & ball */
-    --chalk: #22362A;    /* primary text: softened brand forest */
-    --mist: #56654F;     /* secondary text */
+    --chalk: #17271D;    /* primary text: deep brand forest */
+    --mist: #45533F;     /* secondary text */
     --line: rgba(94, 115, 64, 0.25);
-    --display: 'Cormorant Garamond', 'Cormorant', Georgia, 'Times New Roman', serif;
-    --body: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+    --display: 'Sora', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    --body: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     --wrap: 72rem;
     color-scheme: light;
   }
@@ -58,22 +58,22 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     background: var(--forest);
     color: var(--chalk);
     font-family: var(--body);
-    font-size: 1rem;
-    line-height: 1.65;
+    font-size: 1.0625rem;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
   img { max-width: 100%; display: block; }
   a { color: inherit; }
-  h1, h2, h3 { font-family: var(--display); font-weight: 500; line-height: 1.05; margin: 0; text-wrap: balance; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
   p { margin: 0; }
   .wrap { max-width: var(--wrap); margin-inline: auto; padding-inline: clamp(1rem, 4vw, 2.5rem); }
   .eyebrow {
-    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; color: var(--olive);
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--olive);
   }
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
     padding: 0.85rem 1.4rem; border-radius: 999px; border: 1px solid var(--olive);
-    font: 600 0.78rem/1 var(--body); letter-spacing: 0.16em; text-transform: uppercase;
+    font: 600 0.85rem/1 var(--body); letter-spacing: 0.06em; text-transform: uppercase;
     text-decoration: none; cursor: pointer; transition: background 0.2s, color 0.2s;
   }
   .btn-solid { background: var(--olive); color: var(--forest); }
@@ -83,6 +83,6 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
   a:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 2px solid var(--sage); outline-offset: 3px; }
   section { padding-block: clamp(3.5rem, 8vw, 6rem); }
   .section-head { display: grid; gap: 0.8rem; margin-bottom: 2.5rem; max-width: 40rem; }
-  .section-head h2 { font-size: clamp(2.2rem, 5vw, 3.4rem); }
+  .section-head h2 { font-size: clamp(1.8rem, 4.2vw, 2.8rem); }
   .section-head p { color: var(--mist); }
 </style>
