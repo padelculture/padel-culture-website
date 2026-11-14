@@ -16,7 +16,7 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
       <div id="i-join">
         <p class="eyebrow">Join as a player</p>
         <h1>Get on court with Padel Culture.</h1>
-        <p>Sign up with your mobile number. We'll verify it with a one-time SMS code, you'll set a password, and a few quick questions give you your Padel Culture Rating.</p>
+        <p>Sign up with your mobile number. We'll verify it with a one-time SMS code, you'll set a password, and pick your level in one tap.</p>
         <p class="switch">Already a member? <a href="/login">Log in</a></p>
       </div>
       <div id="i-login" hidden>
@@ -124,11 +124,16 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
           <span class="rc-row"><span class="rc-num" id="t-rating"></span><span class="badge" id="t-status">Self-rated</span></span>
           <span class="rc-blurb" id="t-blurb"></span>
         </div>
-        <p class="muted" id="t-capnote" hidden>The questionnaire gives a starting point. Every session you play moves your rating, and Advanced and Elite are only earned on court.</p>
+        <p class="muted" id="t-capnote" hidden>This is your starting point. Every game you play moves your rating, and the Advanced levels are confirmed on court.</p>
+        <div class="rating-card pending" id="t-pending" hidden>
+          <span class="rc-label">Your Padel Culture Rating</span>
+          <span class="rc-tier">New player</span>
+          <span class="rc-blurb">Your host will set your level after your first game. Book a game and just come and play.</span>
+        </div>
         <p class="muted">Logged in as <strong id="t-done-phone"></strong>.</p>
         <a class="btn btn-solid" href="/#games">Book a game</a>
         <a class="btn btn-ghost" href="/leaderboard">See the leaderboard</a>
-        <p class="links"><a href={joinHref} target="_blank" rel="noopener">Join our WhatsApp community</a> · <button type="button" class="linkbtn" id="b-retake">Retake the questionnaire</button> · <button type="button" class="linkbtn" id="b-logout">Log out</button></p>
+        <p class="links"><a href={joinHref} target="_blank" rel="noopener">Join our WhatsApp community</a> · <button type="button" class="linkbtn" id="b-retake">Change my level</button> · <button type="button" class="linkbtn" id="b-logout">Log out</button></p>
       </div>
 
       <p class="muted loading" id="s-loading">Loading…</p>
@@ -307,10 +312,69 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
     function next() {
       const player = me.player;
       if (player && typeof player.rating === 'number') { const nr = R.normRating(player); showResult(nr, R.tierFor(nr).name, false, player.ratingStatus); }
-      else startQuiz();
+      else if (player && player.levelChoice === 'host') showPending();
+      else startLevel();
     }
 
-    // ---------- Questionnaire ----------
+    // ---------- Level: one tap ----------
+    const LEVELS = [
+      { id: 'beginner', label: 'Beginner', sub: 'Never played, or only tried it a couple of times', rating: 0.5 },
+      { id: 'intermediate', label: 'Intermediate', sub: 'Played more than a few times and can keep a rally going', rating: 2.5 },
+      { id: 'advanced', label: 'Advanced', sub: 'Play regularly and confidently, walls and volleys come naturally', rating: 3.5, capped: true },
+      { id: 'host', label: 'Not sure, let the host decide', sub: 'No rating for now. Your host sets your level after your first game' },
+    ];
+    function startLevel() {
+      $('t-qbar').parentElement.hidden = true;
+      $('t-qnum').parentElement.textContent = 'Your Padel Culture Rating';
+      $('t-question').textContent = "What's your padel level?";
+      $('b-qback').hidden = true;
+      document.querySelector('#s-quiz .hint').textContent = 'Pick what fits best. Every game you play fine-tunes it.';
+      err('e-quiz');
+      $('t-options').replaceChildren(...LEVELS.map((lv) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'option lvl';
+        b.setAttribute('role', 'radio');
+        b.innerHTML = `<strong></strong><small></small>`;
+        b.querySelector('strong').textContent = lv.label;
+        b.querySelector('small').textContent = lv.sub;
+        b.addEventListener('click', () => chooseLevel(lv));
+        return b;
+      }));
+      show('s-quiz');
+    }
+    async function chooseLevel(lv) {
+      const btns = $('t-options').querySelectorAll('button');
+      btns.forEach((b) => (b.disabled = true));
+      err('e-quiz');
+      try {
+        if (lv.id === 'host') {
+          await fb.savePlayer(me.user, { levelChoice: 'host' }, false);
+          me.player = { ...(me.player || {}), levelChoice: 'host' };
+          if (nextUrl) { location.href = nextUrl; return; }
+          return showPending();
+        }
+        const result = { rating: lv.rating, tier: R.tierFor(lv.rating).name, capped: !!lv.capped };
+        await fb.saveRating(me.user, R.displayName(me.name), result, { level: lv.id });
+        await fb.savePlayer(me.user, { levelChoice: lv.id }, false).catch(() => {});
+        me.player = { ...(me.player || {}), rating: result.rating, tier: result.tier, levelChoice: lv.id };
+        if (nextUrl) { location.href = nextUrl; return; }
+        showResult(result.rating, result.tier, result.capped);
+      } catch (ex) {
+        console.error(ex);
+        err('e-quiz', "We couldn't save your level. Check your connection and tap again. " + (ex.code ? `(${ex.code})` : ''));
+        btns.forEach((b) => (b.disabled = false));
+      }
+    }
+    function showPending() {
+      const first = me.name ? me.name.split(' ')[0] : '';
+      $('t-welcome').textContent = first ? `You're in, ${first}` : "You're in";
+      $('t-card').hidden = true; $('t-capnote').hidden = true; $('t-pending').hidden = false;
+      $('t-done-phone').textContent = me.user.phoneNumber || '';
+      show('s-done');
+    }
+
+    // ---------- Old questionnaire (kept for reference, no longer shown) ----------
     let qi = 0;
     let answers = {};
     function startQuiz() { qi = 0; answers = {}; renderQ(); show('s-quiz'); }
@@ -359,12 +423,13 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
       $('t-rating').textContent = R.show1(rating);
       $('t-status').textContent = R.confidenceLabel({ sessions: (me.player && me.player.sessions) || 0, status });
       $('t-blurb').textContent = t.blurb;
-      $('t-card').hidden = false;
+      $('t-card').hidden = false; $('t-pending').hidden = true;
+      $('b-retake').hidden = Boolean((me.player && me.player.sessions > 0) || (status && status !== 'provisional'));
       $('t-capnote').hidden = !capped;
       $('t-done-phone').textContent = me.user.phoneNumber || '';
       show('s-done');
     }
-    $('b-retake').addEventListener('click', startQuiz);
+    $('b-retake').addEventListener('click', startLevel);
     $('b-logout').addEventListener('click', async () => {
       await fb.logout(); fb.resetVerifier();
       $('f-phone').value = ''; $('f-lpass').value = '';
@@ -438,6 +503,8 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
     display: grid; gap: 0.35rem; padding: 1.4rem; border-radius: 10px;
     background: var(--chalk); color: var(--forest);
   }
+  #t-options :global(.option.lvl) { display: grid; gap: 0.2rem; text-align: left; }
+  #t-options :global(.option.lvl small) { font-size: 0.85rem; color: var(--mist); font-weight: 400; }
   .rc-label { font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--moss); }
   .rc-tier { font-family: var(--display); font-size: 2.6rem; line-height: 1; }
   .rc-row { display: flex; align-items: center; gap: 0.8rem; }

@@ -311,7 +311,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
         <div class="section-head">
           <p class="eyebrow">Padel Culture Rating</p>
           <h2>Who's on top</h2>
-          <p>Every player gets a Padel Culture Rating from 0 to 7, the same range as Playtomic, and a level from Beginner to Elite. A short questionnaire sets your start. After that, every session moves you, based on the points you win against the level of your partners and opponents.</p>
+          <p>Every player gets a Padel Culture Rating from 0 to 7, the same range as Playtomic, and a level from Beginner to Elite. You pick your starting level when you join, or your host sets it after your first game. After that, every session moves you, based on the points you win against the level of your partners and opponents.</p>
           <ul class="lb-tiers" aria-label="Levels">
             <li>Beginner (0.0–0.9)</li><li>Beginner+ (1.0–1.9)</li><li>Intermediate (2.0–2.9)</li><li>Intermediate+ (3.0–3.9)</li><li>Lower Advanced (4.0–4.9)</li><li>Advanced (5.0–5.9)</li><li>Elite (6.0–7.0)</li>
           </ul>
@@ -522,7 +522,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
         cards.push({ k: 'Next game', big: `${taken}/${spots}`, name: title, sub: taken >= spots ? 'Full · join the waitlist' : `${spots - taken} spot${spots - taken === 1 ? '' : 's'} left`, href: '#games', cta: taken >= spots ? 'Join waitlist' : 'Book now' });
       }
       const proven = list.filter((r) => (r.sessions || 0) >= 2).length;
-      cards.push({ k: 'The community', big: String(list.length), name: `rated player${list.length === 1 ? '' : 's'}`, sub: proven ? `${proven} Court-Proven` : 'Get rated in 2 minutes', href: list.length ? '/leaderboard' : '/join', cta: list.length ? 'See the leaderboard' : 'Get your rating' });
+      cards.push({ k: 'The community', big: String(list.length), name: `rated player${list.length === 1 ? '' : 's'}`, sub: proven ? `${proven} Court-Proven` : 'Get rated in one tap', href: list.length ? '/leaderboard' : '/join', cta: list.length ? 'See the leaderboard' : 'Get your rating' });
       if (!climber && !star && !streak.length) cards.splice(cards.length - 1, 0, { k: 'Coming up', big: '▲', name: 'Weekly highlights', sub: 'Biggest climber and player of the session appear here after the next rated session.' });
       $('wk-grid').innerHTML = cards.slice(0, 4).map((c) => `<${c.href ? `a href="${c.href}"` : 'div'} class="wk">
           <span class="wk-k">${esc(c.k)}</span>

@@ -22,7 +22,7 @@ const tiers = [
       <div class="lb-intro">
         <p class="eyebrow">Padel Culture Rating</p>
         <h1>Leaderboard</h1>
-        <p>The Padel Culture Rating runs from 0 to 7, the same range as Playtomic, so your Playtomic level means something here too. A short questionnaire sets where you start. After that, every session moves it, based on the points you win against what was expected from your partners' and opponents' levels. Next to every rating you'll see how far it has been tested: Self-rated (from the questionnaire, no Padel Culture games yet), Calibrating (1 game played), or Court-Proven (2 or more games).</p>
+        <p>The Padel Culture Rating runs from 0 to 7, the same range as Playtomic, so your Playtomic level means something here too. You pick your starting level when you join, or let your host set it after your first game. After that, every session moves it, based on the points you win against what was expected from your partners' and opponents' levels. Next to every rating you'll see how far it has been tested: Self-rated (your chosen level, no Padel Culture games yet), Calibrating (1 game played), or Court-Proven (2 or more games).</p>
         <p class="have" id="t-have">Already registered? <a href="/join?next=/leaderboard">Log in to see your rank</a></p>
       </div>
       <div class="me" id="t-me" hidden>
@@ -34,7 +34,7 @@ const tiers = [
       <a class="cta" id="t-cta" href="/join">
         <span class="rc-label">Not rated yet?</span>
         <span class="cta-title">Get your rating</span>
-        <span class="cta-sub">Sign up and answer 13 quick questions →</span>
+        <span class="cta-sub">Sign up and pick your level in one tap →</span>
       </a>
     </div>
 
@@ -109,7 +109,7 @@ const tiers = [
     const R = await import('/js/rating.js');
     const tierName = (r) => R.tierFor(r).name;
     const dateText = (ms) => new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    const pointText = (p) => `${R.show1(p.r)} · ${tierName(p.r)} · ${R.confidenceLabel({ sessions: p.n, status: p.s }, false)} · ${dateText(p.at)} · ${p.by === 'organiser' ? 'set by an organiser' : p.by === 'host' ? `after a host review (${p.d >= 0 ? '+' : ''}${Number(p.d || 0).toFixed(2)})` : p.by === 'session' ? `after ${p.t || 'a session'} (${p.d >= 0 ? '+' : ''}${Number(p.d || 0).toFixed(2)})` : 'from the questionnaire'}`;
+    const pointText = (p) => `${R.show1(p.r)} · ${tierName(p.r)} · ${R.confidenceLabel({ sessions: p.n, status: p.s }, false)} · ${dateText(p.at)} · ${p.by === 'organiser' ? 'set by an organiser' : p.by === 'host' ? `after a host review (${p.d >= 0 ? '+' : ''}${Number(p.d || 0).toFixed(2)})` : p.by === 'session' ? `after ${p.t || 'a session'} (${p.d >= 0 ? '+' : ''}${Number(p.d || 0).toFixed(2)})` : 'starting level'}`;
 
     function drawHistory(player) {
       let pts = Array.isArray(player.ratingHistory) ? player.ratingHistory.filter((p) => typeof p.r === 'number' && typeof p.at === 'number').map((p) => ({ ...p, r: R.normPoint(p) })) : [];
