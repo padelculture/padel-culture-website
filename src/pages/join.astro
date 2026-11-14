@@ -16,13 +16,13 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
       <div id="i-join">
         <p class="eyebrow">Join as a player</p>
         <h1>Get on court with Padel Culture.</h1>
-        <p>Sign up with your mobile number. We'll verify it with a one-time SMS code, you'll set a password, and pick your level in one tap.</p>
+        <p>Sign up with your mobile number. We'll verify it with a one-time SMS code, then you pick your level in one tap. That's it.</p>
         <p class="switch">Already a member? <a href="/login">Log in</a></p>
       </div>
       <div id="i-login" hidden>
         <p class="eyebrow">Members</p>
         <h1>Welcome back.</h1>
-        <p>Log in with your mobile number and password to see your rating, your rank and your bookings.</p>
+        <p>Log in with your mobile number to see your rating, your rank and your bookings.</p>
         <p class="switch">New here? <a href="/join">Join as a player</a></p>
       </div>
     </div>
@@ -58,7 +58,7 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
         </div>
         <p class="err" id="e-login" hidden></p>
         <button class="btn btn-solid" id="b-login" type="submit">Log in</button>
-        <p class="links"><button type="button" class="linkbtn" id="b-forgot">Forgot password? Reset it with an OTP</button></p>
+        <p class="links"><button type="button" class="linkbtn" id="b-forgot">Forgot password? Log in with an OTP</button></p>
       </form>
 
       <!-- New: details -->
@@ -68,8 +68,6 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
         <p class="muted">For <strong class="t-phone"></strong> · <button type="button" class="linkbtn b-change">Change</button></p>
         <label for="f-name">Full name</label>
         <input id="f-name" name="name" autocomplete="name" required maxlength="80" placeholder="e.g. Arjun Mehta" />
-        <label for="f-pin">PIN code</label>
-        <input id="f-pin" name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" placeholder="e.g. 110058" />
         <label class="check" for="f-consent">
           <input type="checkbox" id="f-consent" required />
           <span>Padel Culture can contact me on this number about games and community updates. See the <a href="/privacy">privacy policy</a>.</span>
@@ -93,7 +91,7 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
       <form id="s-password" hidden novalidate>
         <p class="eyebrow">Number verified</p>
         <h2 id="t-passtitle">Create a password</h2>
-        <p class="muted">Next time, log in with your mobile number and this password. No OTP needed.</p>
+        <p class="muted">Optional. With a password you can log in without waiting for an OTP. You'll stay logged in on this phone either way.</p>
         <label for="f-pass">Password</label>
         <div class="pass">
           <input id="f-pass" type="password" autocomplete="new-password" minlength="6" maxlength="32" placeholder="At least 6 characters" />
@@ -102,6 +100,7 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
         <p class="muted hint">At least 6 characters. Numbers only is fine, e.g. a 6-digit PIN.</p>
         <p class="err" id="e-pass" hidden></p>
         <button class="btn btn-solid" id="b-pass" type="submit">Save password</button>
+        <p class="links"><button type="button" class="linkbtn" id="b-skippass">Skip for now</button></p>
       </form>
 
       <!-- Questionnaire -->
@@ -173,7 +172,7 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
     let me = { user: null, name: '', player: null };
 
     // ---------- Step 1: mobile ----------
-    digits('f-phone', 10); digits('f-pin', 6); digits('f-code', 6);
+    digits('f-phone', 10); digits('f-code', 6);
     $('s-mobile').addEventListener('submit', async (e) => {
       e.preventDefault();
       phone = $('f-phone').value.trim();
@@ -185,7 +184,7 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
       try {
         const member = await fb.lookupMember(phone);
         if (member && member.hasPassword) show('s-login');
-        else if (member) { resetting = true; await sendOtp($('b-continue'), 'e-mobile'); }
+        else if (member) { resetting = false; await sendOtp($('b-continue'), 'e-mobile'); }
         else show('s-details');
       } catch (ex) {
         console.error(ex);
@@ -229,12 +228,10 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
     $('s-details').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = $('f-name').value.trim();
-      const pincode = $('f-pin').value.trim();
       if (name.length < 2) return err('e-details', 'Please enter your name.');
-      if (!/^[1-9]\d{5}$/.test(pincode)) return err('e-details', 'Enter your 6-digit PIN code.');
       if (!$('f-consent').checked) return err('e-details', 'Please tick the box to agree to be contacted.');
       err('e-details');
-      pending = { name, pincode };
+      pending = { name };
       await sendOtp($('b-send'), 'e-details');
     });
 
@@ -269,15 +266,18 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
       let player = null;
       try { player = await fb.getPlayer(user.uid); } catch (e) {}
       if (pending || !player) {
-        const fields = pending ? { name: pending.name, pincode: pending.pincode, consent: true } : { name: (player && player.name) || 'Player' };
+        const fields = pending ? { name: pending.name, consent: true } : { name: (player && player.name) || 'Player' };
         await fb.savePlayer(user, fields, !player);
         player = { ...(player || {}), ...fields };
       } else {
         await fb.savePlayer(user, {}, false);
       }
+      const isNew = Boolean(pending);
       me = { user, name: player.name || '', player };
       pending = null;
       await fb.markMember(user).catch((e) => console.error(e));
+      // Returning players who logged in with an OTP go straight in; only new players and resets see the password step.
+      if (!isNew && !resetting) { if (nextUrl) { location.href = nextUrl; return; } return next(); }
       $('t-passtitle').textContent = fb.hasPassword(user) ? 'Set a new password' : 'Create a password';
       show('s-password');
     }
@@ -300,13 +300,18 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
       finally { busy(btn, false, 'Save password'); }
     });
 
+    $('b-skippass').addEventListener('click', () => {
+      resetting = false; err('e-pass');
+      if (nextUrl && typeof (me.player && me.player.rating) === 'number') { location.href = nextUrl; return; }
+      next();
+    });
+
     // ---------- Logged in ----------
     async function enter(user) {
       let player = null;
       try { player = await fb.getPlayer(user.uid); } catch (e) {}
       me = { user, name: (player && player.name) || '', player };
       if (!player) { phone = (user.phoneNumber || '').slice(-10); document.querySelectorAll('.t-phone').forEach((el) => (el.textContent = pretty(phone))); show('s-details'); return; }
-      if (!fb.hasPassword(user)) { show('s-password'); return; }
       next();
     }
     function next() {
@@ -444,7 +449,7 @@ const joinHref = site.whatsappGroupLink || (waBase ? `${waBase}?text=${encodeURI
         if (!first) return;
         first = false;
         if (user) {
-          if (nextUrl && fb.hasPassword(user)) { location.href = nextUrl; return; }
+          if (nextUrl) { location.href = nextUrl; return; }
           try { await enter(user); } catch (e) { console.error(e); show('s-mobile'); }
         } else show('s-mobile');
       });
