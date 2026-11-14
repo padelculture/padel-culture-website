@@ -109,7 +109,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
           <h2>Upcoming games</h2>
           <p>Sign up solo and we'll pair you up. Every game lists its format, level and spots left.</p>
         </div>
-        <ol class="board" id="board">
+        <ol class="board" id="board" data-pay={(site as { onlinePayments?: boolean }).onlinePayments ? '1' : ''}>
           {games.map((g) => {
             const taken = Math.min(g.data.spots, g.data.reserved || 0);
             const left = g.data.spots - taken;
@@ -151,6 +151,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                     </>
                   )}
                   <span class="booked-note" hidden>Spot reserved · payment pending</span>
+                  <button type="button" class="btn btn-solid b-pay" data-id={g.id} data-price={g.data.price} hidden>Pay ₹{g.data.price.toLocaleString('en-IN')} now</button>
                   <span class="wait-note" hidden></span>
                   <button type="button" class="linkbtn b-unwait" data-id={g.id} hidden>Leave waitlist</button>
                   <button type="button" class="linkbtn b-leave" data-id={g.id} hidden>Remove me from this game</button>
@@ -158,7 +159,8 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                 <div class="confirm" hidden>
                   <div class="confirm-text">
                     <strong>Confirm your spot · ₹{g.data.price.toLocaleString('en-IN')}</strong>
-                    <p>Your spot will be confirmed once you pay. The host will message you on WhatsApp with the payment details.</p>
+                    <p class="c-host">Your spot will be confirmed once you pay. The host will message you on WhatsApp with the payment details.</p>
+                    <p class="c-pay" hidden>Pay securely with UPI, card or netbanking. Your spot is confirmed as soon as the payment goes through.</p>
                     <p class="err" hidden></p>
                   </div>
                   <div class="confirm-actions">
@@ -167,6 +169,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                   </div>
                 </div>
                 <p class="booked-sub" hidden>Your spot will be confirmed once you pay. The host will message you on WhatsApp with the payment details.</p>
+                <p class="pay-err err" hidden></p>
               </li>
             );
           })}
@@ -419,6 +422,13 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
 
     const booked = {};   // gameId -> online bookings (live)
     const mine = new Set();
+    const paidSet = new Set();   // my bookings that are paid
+    const PAY = $('board').dataset.pay === '1';
+    if (PAY) {
+      document.querySelectorAll('.c-host').forEach((e) => (e.hidden = true));
+      document.querySelectorAll('.c-pay').forEach((e) => (e.hidden = false));
+      document.querySelectorAll('.b-confirm').forEach((e) => (e.textContent = 'Book & pay'));
+    }
     let waitlist = [];   // every waitlist entry, oldest first
     let myUid = null;
     let confirming = null;   // game the player is confirming
@@ -440,14 +450,20 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
         const wait = r.querySelector('.b-wait');
         const note = r.querySelector('.booked-note');
         const isMine = mine.has(id);
-        if (note) note.hidden = !isMine;
+        const isPaid = paidSet.has(id);
+        if (note) { note.hidden = !isMine; note.textContent = isPaid ? 'Spot confirmed · paid ✓' : 'Spot reserved · payment pending'; }
         const sub = r.querySelector('.booked-sub');
-        if (sub) sub.hidden = !isMine;
+        if (sub) {
+          sub.hidden = !isMine || isPaid;
+          if (PAY) sub.textContent = 'Pay now to confirm your spot. Unpaid spots may be given to the waitlist.';
+        }
+        const pay = r.querySelector('.b-pay');
+        if (pay) pay.hidden = !(PAY && isMine && !isPaid);
         const box = r.querySelector('.confirm');
         if (box) box.hidden = !(confirming === id && !isMine && !full);
         const leave = r.querySelector('.b-leave');
         if (leave) {
-          leave.hidden = !isMine;
+          leave.hidden = !isMine || isPaid;
           if (!isMine) { leave.dataset.confirming = ''; leave.disabled = false; leave.textContent = 'Remove me from this game'; }
         }
         if (add) {
@@ -488,15 +504,66 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
         confirming = null;
         waitlist = waitlist.filter((w) => !(w.gameId === id && w.uid === me.uid));
         fbm.leaveWaitlist(me.uid, id).catch(() => {});
+        if (PAY) { b.disabled = false; b.textContent = 'Book & pay'; paint(); startPay(id, row); return; }
       } catch (e) {
         console.error(e);
         errEl.textContent = fbm.friendlyError(e);
         errEl.hidden = false;
         if (e.code === 'already-booked') { mine.add(id); confirming = null; }
       }
-      b.disabled = false; b.textContent = 'Confirm booking';
+      b.disabled = false; b.textContent = PAY ? 'Book & pay' : 'Confirm booking';
       paint();
     }));
+
+    // ---------- Online payment (Razorpay) ----------
+    let rzpLoaded = null;
+    const loadRzp = () => rzpLoaded ||= new Promise((ok, bad) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      sc.onload = ok; sc.onerror = () => { rzpLoaded = null; bad(new Error('Could not load the payment window. Check your connection.')); };
+      document.head.appendChild(sc);
+    });
+    async function api(path, body) {
+      const token = await me.getIdToken();
+      const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw Object.assign(new Error(j.error || 'Payment error'), { paid: j.paid });
+      return j;
+    }
+    async function startPay(id, row) {
+      const errEl = row.querySelector('.pay-err');
+      const btn = row.querySelector('.b-pay');
+      errEl.hidden = true;
+      if (btn) { btn.disabled = true; btn.textContent = 'Opening payment…'; }
+      const reset = () => { if (btn) { btn.disabled = false; btn.textContent = `Pay ₹${Number(btn.dataset.price).toLocaleString('en-IN')} now`; } };
+      try {
+        await loadRzp();
+        const o = await api('/api/pay-order', { gameId: id });
+        const rzp = new window.Razorpay({
+          key: o.keyId, order_id: o.orderId, amount: o.amount, currency: o.currency,
+          name: 'Padel Culture', description: o.title, image: '/brand/padel-culture-logo-circle.png',
+          prefill: { contact: o.phone || (me && me.phoneNumber) || '' },
+          theme: { color: '#5E7340' },
+          modal: { ondismiss: reset },
+          handler: async (resp) => {
+            try {
+              if (btn) btn.textContent = 'Confirming…';
+              await api('/api/pay-verify', { orderId: resp.razorpay_order_id, paymentId: resp.razorpay_payment_id, signature: resp.razorpay_signature });
+              paidSet.add(id);
+            } catch (ex) { errEl.textContent = ex.message; errEl.hidden = false; }
+            reset(); paint();
+          },
+        });
+        rzp.on('payment.failed', (r) => { errEl.textContent = (r.error && r.error.description) || 'Payment failed. Please try again.'; errEl.hidden = false; });
+        rzp.open();
+      } catch (ex) {
+        console.error(ex);
+        if (ex.paid) { paidSet.add(id); paint(); }
+        else { errEl.textContent = ex.message; errEl.hidden = false; }
+        reset();
+      }
+    }
+    document.querySelectorAll('.b-pay').forEach((b) => b.addEventListener('click', () => { if (me) startPay(b.dataset.id, b.closest('.fixture')); }));
     paint();
 
     // ---------- This week at Padel Culture ----------
@@ -646,9 +713,10 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
           me = user;
           authReady = true;
           myUid = user ? user.uid : null;
-          mine.clear();
+          mine.clear(); paidSet.clear();
           if (user) {
-            try { (await fb.listMyBookings(user.uid)).forEach((b) => mine.add(b.gameId)); } catch (e) { console.error(e); }
+            paidSet.clear();
+            try { (await fb.listMyBookings(user.uid)).forEach((b) => { mine.add(b.gameId); if (b.paid) paidSet.add(b.gameId); }); } catch (e) { console.error(e); }
             // Once a waitlisted player has a spot, take them off the waitlist.
             for (const w of waitlist.filter((x) => x.uid === user.uid && mine.has(x.gameId))) {
               try { await fb.leaveWaitlist(user.uid, w.gameId); waitlist = waitlist.filter((x) => x !== w); } catch (e) { console.error(e); }
