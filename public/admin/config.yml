@@ -30,6 +30,7 @@ collections:
       - { label: Format, name: format, widget: select, options: [Americano, Mexicano, King of the Court, Team Americano, Mixed Americano, Coached Americano, Box League, Tournament, Open play], default: Americano }
       - { label: Level, name: level, widget: string, default: All levels, hint: "e.g. Beginner, Intermediate (2.5+), All levels" }
       - { label: Price per player (₹), name: price, widget: number, value_type: int, default: 800 }
+      - { label: Advance to confirm (₹), name: advance, widget: number, value_type: int, required: false, hint: "Paid online to confirm a spot, the rest at the court. Leave empty to use the default in Site settings (₹200)." }
       - { label: Total spots, name: spots, widget: number, value_type: int, default: 16 }
       - { label: Spots taken offline, name: reserved, widget: number, value_type: int, default: 0, required: false, hint: "Spots you've filled outside the website (WhatsApp, cash). Online bookings are counted automatically." }
       - { label: Booking link (optional), name: bookingLink, widget: string, required: false, hint: "Optional. If set, Book spot opens this link instead of the website cart." }

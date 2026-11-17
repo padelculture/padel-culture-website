@@ -13,6 +13,7 @@ const games = defineCollection({
     format: z.string().default('Americano'),
     level: z.string().default('All levels'),
     price: z.number().default(0),
+    advance: z.number().optional(),      // paid online to confirm a spot; rest at the court. Falls back to site setting.
     spots: z.number().default(16),
     reserved: z.number().default(0),     // spots taken offline (cash/WhatsApp)
     spotsLeft: z.number().optional(),  // old field, no longer used

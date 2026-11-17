@@ -14,14 +14,16 @@ export default async function handler(req, res) {
     const bookingId = `${gameId}__${user.uid}`;
     const b = await getBooking(bookingId);
     if (!b) return send(res, 404, { error: 'Book a spot first.' });
-    if (b.paid) return send(res, 409, { error: 'This spot is already paid.', paid: true });
-    const amount = Math.round(Number(game.price) * 100);
+    if (b.paid || b.advancePaid) return send(res, 409, { error: 'This spot is already confirmed.', paid: true });
+    const price = Number(game.price);
+    const advance = Number(game.advance ?? price);
+    const amount = Math.round(advance * 100);
     const order = await razorpay('/orders', { method: 'POST', body: JSON.stringify({
       amount, currency: 'INR',
       receipt: 'pc_' + crypto.createHash('sha1').update(bookingId).digest('hex').slice(0, 30),
-      notes: { bookingId, uid: user.uid, gameId },
+      notes: { bookingId, uid: user.uid, gameId, price: String(price) },
     }) });
-    send(res, 200, { orderId: order.id, amount, currency: 'INR', keyId: process.env.RAZORPAY_KEY_ID, title: game.title, phone: user.phone });
+    send(res, 200, { orderId: order.id, amount, currency: 'INR', keyId: process.env.RAZORPAY_KEY_ID, title: game.title, phone: user.phone, balance: Math.max(0, price - advance) });
   } catch (e) {
     console.error(e);
     send(res, 500, { error: 'Could not start the payment. Please try again.' });

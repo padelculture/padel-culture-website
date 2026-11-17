@@ -18,5 +18,6 @@
   "email": "",
   "heroTitle": "Padel for India",
   "paymentLink": "",
-  "onlinePayments": false
+  "onlinePayments": false,
+  "advanceAmount": 200
 }

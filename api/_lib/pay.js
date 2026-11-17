@@ -67,10 +67,12 @@ export async function getBooking(id) {
   return Object.fromEntries(Object.entries(f).map(([k, v]) => [k, val(v)]));
 }
 
+// p.amount is in paise.
 export async function markPaid(bookingId, p) {
   const fields = {
-    paid: { booleanValue: true },
+    paid: { booleanValue: Boolean(p.full) },          // true only when the whole fee was paid online
     status: { stringValue: 'confirmed' },
+    advancePaid: { integerValue: String(Math.round(p.amount / 100)) },
     payMethod: { stringValue: 'razorpay' },
     paymentId: { stringValue: p.paymentId },
     orderId: { stringValue: p.orderId },

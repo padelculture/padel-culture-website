@@ -305,13 +305,13 @@ const sheets = Object.values(import.meta.glob('../../data/scoresheets/*.json', {
         const rows = list.map((b, i) => {
           const p = byUid[b.uid] || {};
           const lvl = typeof p.rating === 'number' ? `${R.show1(p.rating)} · ${esc(tierFor(p.rating).name)}` : '<span class="muted">Not rated</span>';
-          return `<tr class="${b.paid ? 'is-paid' : ''}">
+          return `<tr class="${b.paid ? 'is-paid' : b.advancePaid ? 'is-adv' : ''}">
             <td class="num">${i + 1}</td>
             <td><strong>${esc(p.name || b.name)}</strong></td>
             <td><a href="https://wa.me/${esc(waNum(p.phone))}" target="_blank" rel="noopener">${esc(p.phone || '')}</a></td>
             <td>${lvl}</td>
             <td>${esc(fmtTs(b.createdAt))}</td>
-            <td><button type="button" class="pill ${b.paid ? 'pill-paid' : 'pill-due'}" data-act="paid" data-id="${esc(b.id)}">${b.paid ? 'Paid ✓' : 'Payment due'}</button></td>
+            <td><button type="button" class="pill ${b.paid ? 'pill-paid' : 'pill-due'}" data-act="paid" data-id="${esc(b.id)}">${b.paid ? 'Paid ✓' : b.advancePaid ? `Advance ₹${b.advancePaid} ✓ · rest due` : 'Payment due'}</button>${b.payMethod === 'razorpay' ? '<small class="muted"> online</small>' : ''}</td>
             <td class="acts">
               <a class="linkbtn" data-act="send" data-id="${esc(b.id)}" data-game="${esc(g.id)}" href="${esc(waHref(b, g))}" target="_blank" rel="noopener">${b.linkSentAt ? 'Send again' : 'Send confirmation'}</a>
               ${b.linkSentAt ? `<span class="muted small">sent ${esc(fmtTs(b.linkSentAt))}</span>` : ''}

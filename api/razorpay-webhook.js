@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     if (body.event === 'order.paid') {
       const order = body.payload?.order?.entity || {};
       const pay = body.payload?.payment?.entity || {};
-      if (order.notes?.bookingId) await markPaid(order.notes.bookingId, { paymentId: pay.id || '', orderId: order.id, amount: order.amount_paid || order.amount });
+      if (order.notes?.bookingId) await markPaid(order.notes.bookingId, { paymentId: pay.id || '', orderId: order.id, amount: order.amount_paid || order.amount, full: (order.amount_paid || order.amount) >= Number(order.notes.price || 0) * 100 });
     }
     send(res, 200, { ok: true });
   } catch (e) {

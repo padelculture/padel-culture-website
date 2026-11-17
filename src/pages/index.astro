@@ -114,8 +114,11 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
             const taken = Math.min(g.data.spots, g.data.reserved || 0);
             const left = g.data.spots - taken;
             const full = g.data.status === 'full' || !(left > 0);
+            const advance = Math.min(g.data.price, g.data.advance ?? (site as { advanceAmount?: number }).advanceAmount ?? g.data.price);
+            const balance = g.data.price - advance;
+            const inr = (n: number) => n.toLocaleString('en-IN');
             return (
-              <li class:list={['fixture', { full }]} id={`game-${g.id}`} data-start={g.data.date.toISOString()} data-id={g.id} data-spots={g.data.spots} data-reserved={g.data.reserved || 0} data-closed={g.data.status === 'full' ? '1' : ''}>
+              <li class:list={['fixture', { full }]} id={`game-${g.id}`} data-start={g.data.date.toISOString()} data-id={g.id} data-spots={g.data.spots} data-reserved={g.data.reserved || 0} data-closed={g.data.status === 'full' ? '1' : ''} data-advance={advance} data-balance={balance}>
                 <div class="when">
                   <span class="dow">{fmt(g.data.date, { weekday: 'short' })}</span>
                   <span class="day">{fmt(g.data.date, { day: 'numeric' })}</span>
@@ -151,7 +154,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                     </>
                   )}
                   <span class="booked-note" hidden>Spot reserved · payment pending</span>
-                  <button type="button" class="btn btn-solid b-pay" data-id={g.id} data-price={g.data.price} hidden>Pay ₹{g.data.price.toLocaleString('en-IN')} now</button>
+                  <button type="button" class="btn btn-solid b-pay" data-id={g.id} data-price={advance} hidden>Pay ₹{inr(advance)} to confirm</button>
                   <span class="wait-note" hidden></span>
                   <button type="button" class="linkbtn b-unwait" data-id={g.id} hidden>Leave waitlist</button>
                   <button type="button" class="linkbtn b-leave" data-id={g.id} hidden>Remove me from this game</button>
@@ -160,7 +163,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                   <div class="confirm-text">
                     <strong>Confirm your spot · ₹{g.data.price.toLocaleString('en-IN')}</strong>
                     <p class="c-host">Your spot will be confirmed once you pay. The host will message you on WhatsApp with the payment details.</p>
-                    <p class="c-pay" hidden>Pay securely with UPI, card or netbanking. Your spot is confirmed as soon as the payment goes through.</p>
+                    <p class="c-pay" hidden>{balance > 0 ? `Pay ₹${inr(advance)} now to confirm your spot. The rest, ₹${inr(balance)}, is paid at the court.` : 'Pay securely with UPI, card or netbanking. Your spot is confirmed as soon as the payment goes through.'} If you can't make it, tell us 24 hours before and it carries over to your next game.</p>
                     <p class="err" hidden></p>
                   </div>
                   <div class="confirm-actions">
@@ -422,12 +425,13 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
 
     const booked = {};   // gameId -> online bookings (live)
     const mine = new Set();
-    const paidSet = new Set();   // my bookings that are paid
+    const paidSet = new Set();   // my bookings that are confirmed (advance or full fee paid)
+    const fullPaid = new Set();  // my bookings paid in full
     const PAY = $('board').dataset.pay === '1';
     if (PAY) {
       document.querySelectorAll('.c-host').forEach((e) => (e.hidden = true));
       document.querySelectorAll('.c-pay').forEach((e) => (e.hidden = false));
-      document.querySelectorAll('.b-confirm').forEach((e) => (e.textContent = 'Book & pay'));
+      document.querySelectorAll('.b-confirm').forEach((e) => (e.textContent = `Book & pay ₹${Number(e.closest('.fixture').dataset.advance).toLocaleString('en-IN')}`));
     }
     let waitlist = [];   // every waitlist entry, oldest first
     let myUid = null;
@@ -451,11 +455,13 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
         const note = r.querySelector('.booked-note');
         const isMine = mine.has(id);
         const isPaid = paidSet.has(id);
-        if (note) { note.hidden = !isMine; note.textContent = isPaid ? 'Spot confirmed · paid ✓' : 'Spot reserved · payment pending'; }
+        const bal = +r.dataset.balance || 0;
+        const fullyPaid = fullPaid.has(id);
+        if (note) { note.hidden = !isMine; note.textContent = !isPaid ? 'Spot reserved · payment pending' : (fullyPaid || !bal) ? 'Spot confirmed · paid ✓' : `Spot confirmed ✓ · ₹${bal.toLocaleString('en-IN')} at the court`; }
         const sub = r.querySelector('.booked-sub');
         if (sub) {
           sub.hidden = !isMine || isPaid;
-          if (PAY) sub.textContent = 'Pay now to confirm your spot. Unpaid spots may be given to the waitlist.';
+          if (PAY) sub.textContent = `Pay ₹${Number(r.dataset.advance).toLocaleString('en-IN')} to confirm your spot${bal ? `, the rest at the court` : ''}. Unconfirmed spots may go to the waitlist.`;
         }
         const pay = r.querySelector('.b-pay');
         if (pay) pay.hidden = !(PAY && isMine && !isPaid);
@@ -504,14 +510,14 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
         confirming = null;
         waitlist = waitlist.filter((w) => !(w.gameId === id && w.uid === me.uid));
         fbm.leaveWaitlist(me.uid, id).catch(() => {});
-        if (PAY) { b.disabled = false; b.textContent = 'Book & pay'; paint(); startPay(id, row); return; }
+        if (PAY) { b.disabled = false; b.textContent = `Book & pay ₹${Number(row.dataset.advance).toLocaleString('en-IN')}`; paint(); startPay(id, row); return; }
       } catch (e) {
         console.error(e);
         errEl.textContent = fbm.friendlyError(e);
         errEl.hidden = false;
         if (e.code === 'already-booked') { mine.add(id); confirming = null; }
       }
-      b.disabled = false; b.textContent = PAY ? 'Book & pay' : 'Confirm booking';
+      b.disabled = false; b.textContent = PAY ? `Book & pay ₹${Number(row.dataset.advance).toLocaleString('en-IN')}` : 'Confirm booking';
       paint();
     }));
 
@@ -535,7 +541,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
       const btn = row.querySelector('.b-pay');
       errEl.hidden = true;
       if (btn) { btn.disabled = true; btn.textContent = 'Opening payment…'; }
-      const reset = () => { if (btn) { btn.disabled = false; btn.textContent = `Pay ₹${Number(btn.dataset.price).toLocaleString('en-IN')} now`; } };
+      const reset = () => { if (btn) { btn.disabled = false; btn.textContent = `Pay ₹${Number(btn.dataset.price).toLocaleString('en-IN')} to confirm`; } };
       try {
         await loadRzp();
         const o = await api('/api/pay-order', { gameId: id });
@@ -549,7 +555,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
             try {
               if (btn) btn.textContent = 'Confirming…';
               await api('/api/pay-verify', { orderId: resp.razorpay_order_id, paymentId: resp.razorpay_payment_id, signature: resp.razorpay_signature });
-              paidSet.add(id);
+              paidSet.add(id); if (!o.balance) fullPaid.add(id);
             } catch (ex) { errEl.textContent = ex.message; errEl.hidden = false; }
             reset(); paint();
           },
@@ -713,10 +719,10 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
           me = user;
           authReady = true;
           myUid = user ? user.uid : null;
-          mine.clear(); paidSet.clear();
+          mine.clear(); paidSet.clear(); fullPaid.clear();
           if (user) {
-            paidSet.clear();
-            try { (await fb.listMyBookings(user.uid)).forEach((b) => { mine.add(b.gameId); if (b.paid) paidSet.add(b.gameId); }); } catch (e) { console.error(e); }
+            paidSet.clear(); fullPaid.clear();
+            try { (await fb.listMyBookings(user.uid)).forEach((b) => { mine.add(b.gameId); if (b.paid || b.advancePaid) paidSet.add(b.gameId); if (b.paid) fullPaid.add(b.gameId); }); } catch (e) { console.error(e); }
             // Once a waitlisted player has a spot, take them off the waitlist.
             for (const w of waitlist.filter((x) => x.uid === user.uid && mine.has(x.gameId))) {
               try { await fb.leaveWaitlist(user.uid, w.gameId); waitlist = waitlist.filter((x) => x !== w); } catch (e) { console.error(e); }

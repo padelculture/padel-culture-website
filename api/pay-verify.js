@@ -11,9 +11,9 @@ export default async function handler(req, res) {
     const { orderId, paymentId, signature } = await readBody(req);
     if (!sameHex(hmac(process.env.RAZORPAY_KEY_SECRET, `${orderId}|${paymentId}`), signature)) return send(res, 400, { error: 'Payment could not be verified.' });
     const order = await razorpay(`/orders/${encodeURIComponent(orderId)}`);
-    const { bookingId, uid } = order.notes || {};
+    const { bookingId, uid, price } = order.notes || {};
     if (!bookingId || uid !== user.uid) return send(res, 403, { error: 'This payment belongs to another booking.' });
-    await markPaid(bookingId, { paymentId, orderId, amount: order.amount });
+    await markPaid(bookingId, { paymentId, orderId, amount: order.amount, full: order.amount >= Number(price || 0) * 100 });
     send(res, 200, { ok: true });
   } catch (e) {
     console.error(e);
