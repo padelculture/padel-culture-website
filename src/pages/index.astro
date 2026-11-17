@@ -109,6 +109,10 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
           <h2>Upcoming games</h2>
           <p>Sign up solo and we'll pair you up. Every game lists its format, level and spots left.</p>
         </div>
+        <div class="pay-note" id="pay-note" hidden>
+          <strong>Book with ₹{(site as { advanceAmount?: number }).advanceAmount ?? 200}, pay the rest at the court</strong>
+          <p>To book a spot, you pay a small ₹{(site as { advanceAmount?: number }).advanceAmount ?? 200} advance online, and the balance is paid at the court on the day. It means every spot goes to someone who's coming, games start on time, and no one is left waiting for last-minute dropouts. Can't make it after all? Let us know at least 24 hours before and your advance carries over to your next game. Thank you for helping keep every game full and fun 💚</p>
+        </div>
         <ol class="board" id="board" data-pay={(site as { onlinePayments?: boolean }).onlinePayments ? '1' : ''}>
           {games.map((g) => {
             const taken = Math.min(g.data.spots, g.data.reserved || 0);
@@ -145,6 +149,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                 </div>
                 <div class="book">
                   <span class="price">₹{g.data.price.toLocaleString('en-IN')}</span>
+                  {balance > 0 && <span class="price-split" hidden>₹{inr(advance)} to book · ₹{inr(balance)} at the court</span>}
                   {g.data.bookingLink ? (
                     <a class="btn btn-solid" href={g.data.bookingLink} target="_blank" rel="noopener">Book spot</a>
                   ) : (
@@ -435,6 +440,8 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
     if (PAY) {
       document.querySelectorAll('.c-host').forEach((e) => (e.hidden = true));
       document.querySelectorAll('.c-pay').forEach((e) => (e.hidden = false));
+      $('pay-note').hidden = false;
+      document.querySelectorAll('.price-split').forEach((e) => (e.hidden = false));
       document.querySelectorAll('.b-confirm').forEach((e) => (e.textContent = `Book & pay ₹${Number(e.closest('.fixture').dataset.advance).toLocaleString('en-IN')}`));
     }
     let waitlist = [];   // every waitlist entry, oldest first
@@ -804,6 +811,10 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
   .dots i.on { background: var(--olive); }
   .spots-label { font-size: 0.78rem; color: var(--mist); font-variant-numeric: tabular-nums; }
   .book { display: grid; gap: 0.6rem; justify-items: end; }
+  .price-split { font-size: 0.8rem; color: var(--mist); text-align: right; margin-top: -0.4rem; }
+  .pay-note { margin: 0 0 1.6rem; padding: 1rem 1.2rem; border: 1px solid var(--line); border-left: 4px solid var(--sage, #5E7340); border-radius: 10px; background: #fff; display: grid; gap: 0.35rem; max-width: 52rem; }
+  .pay-note strong { color: var(--chalk); font-size: 1rem; }
+  .pay-note p { color: var(--mist); font-size: 0.92rem; line-height: 1.6; margin: 0; }
   .price { font-family: var(--display); font-size: 1.7rem; font-variant-numeric: lining-nums; }
   .wait-note { font-size: 0.85rem; font-weight: 600; color: var(--sage); }
   .fixture.full .what h3, .fixture.full .price { color: var(--mist); }
