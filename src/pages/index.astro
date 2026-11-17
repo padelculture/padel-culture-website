@@ -494,9 +494,11 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
     // Book spot -> confirm on the card (log in first if needed).
     document.querySelectorAll('.b-add').forEach((b) => b.addEventListener('click', () => {
       if (!fbm || !authReady) return;
-      if (!me) { location.href = '/join?next=' + encodeURIComponent('/#games'); return; }
+      if (!me) { location.href = '/join?next=' + encodeURIComponent(PAY ? `/?book=${b.dataset.id}#game-${b.dataset.id}` : '/#games'); return; }
       confirming = b.dataset.id;
       paint();
+      // With online payment on, one tap books the spot and opens the payment straight away.
+      if (PAY) b.closest('.fixture').querySelector('.b-confirm').click();
     }));
     document.querySelectorAll('.b-back').forEach((b) => b.addEventListener('click', () => { confirming = null; paint(); }));
     document.querySelectorAll('.b-confirm').forEach((b) => b.addEventListener('click', async () => {
@@ -733,6 +735,15 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
             }
           }
           paint();
+          // Back from logging in with ?book=<game>: go straight to payment.
+          const want = new URLSearchParams(location.search).get('book');
+          if (user && PAY && want) {
+            history.replaceState(null, '', location.pathname + location.hash);
+            const row = document.getElementById('game-' + want);
+            const add = row && row.querySelector('.b-add');
+            if (mine.has(want) && !paidSet.has(want)) startPay(want, row);
+            else if (add && !add.hidden) add.click();
+          }
         });
       } catch (e) { console.error(e); }
     }
