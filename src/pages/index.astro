@@ -109,10 +109,6 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
           <h2>Upcoming games</h2>
           <p>Sign up solo and we'll pair you up. Every game lists its format, level and spots left.</p>
         </div>
-        <div class="pay-note" id="pay-note" hidden>
-          <strong>Book with ₹{(site as { advanceAmount?: number }).advanceAmount ?? 200}, pay the rest at the court</strong>
-          <p>To book a spot, you pay a small ₹{(site as { advanceAmount?: number }).advanceAmount ?? 200} advance online, and the balance is paid at the court on the day. It means every spot goes to someone who's coming, games start on time, and no one is left waiting for last-minute dropouts. Can't make it after all? Let us know at least 24 hours before and your advance carries over to your next game. Thank you for helping keep every game full and fun 💚</p>
-        </div>
         <ol class="board" id="board" data-pay={(site as { onlinePayments?: boolean }).onlinePayments ? '1' : ''}>
           {games.map((g) => {
             const taken = Math.min(g.data.spots, g.data.reserved || 0);
@@ -178,6 +174,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                 </div>
                 <p class="booked-sub" hidden>Your spot will be confirmed once you pay. The host will message you on WhatsApp with the payment details.</p>
                 <p class="pay-err err" hidden></p>
+                {balance > 0 && <p class="book-terms" hidden>Can't make it? Cancel 24 hrs before and your ₹{inr(advance)} carries over to your next game. Emergencies happen, so just let us know: your first 2 last-minute cancellations carry over too.</p>}
               </li>
             );
           })}
@@ -440,7 +437,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
     if (PAY) {
       document.querySelectorAll('.c-host').forEach((e) => (e.hidden = true));
       document.querySelectorAll('.c-pay').forEach((e) => (e.hidden = false));
-      $('pay-note').hidden = false;
+      document.querySelectorAll('.book-terms').forEach((e) => (e.hidden = false));
       document.querySelectorAll('.price-split').forEach((e) => (e.hidden = false));
       document.querySelectorAll('.b-confirm').forEach((e) => (e.textContent = `Book & pay ₹${Number(e.closest('.fixture').dataset.advance).toLocaleString('en-IN')}`));
     }
@@ -812,9 +809,8 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
   .spots-label { font-size: 0.78rem; color: var(--mist); font-variant-numeric: tabular-nums; }
   .book { display: grid; gap: 0.6rem; justify-items: end; }
   .price-split { font-size: 0.8rem; color: var(--mist); text-align: right; margin-top: -0.4rem; white-space: nowrap; }
-  .pay-note { margin: 0 0 1.6rem; padding: 1rem 1.2rem; border: 1px solid var(--line); border-left: 4px solid var(--sage, #5E7340); border-radius: 10px; background: #fff; display: grid; gap: 0.35rem; max-width: 52rem; }
-  .pay-note strong { color: var(--chalk); font-size: 1rem; }
-  .pay-note p { color: var(--mist); font-size: 0.92rem; line-height: 1.6; margin: 0; }
+  .book-terms { grid-column: 1 / -1; margin: 0; font-size: 0.85rem; line-height: 1.55; color: var(--mist); }
+  .book-terms strong { color: var(--chalk); font-weight: 600; }
   .price { font-family: var(--display); font-size: 1.7rem; font-variant-numeric: lining-nums; }
   .wait-note { font-size: 0.85rem; font-weight: 600; color: var(--sage); }
   .fixture.full .what h3, .fixture.full .price { color: var(--mist); }
