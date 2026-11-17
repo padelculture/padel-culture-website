@@ -145,7 +145,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                 </div>
                 <div class="book">
                   <span class="price">₹{g.data.price.toLocaleString('en-IN')}</span>
-                  {balance > 0 && <span class="price-split" hidden>₹{inr(advance)} to book · ₹{inr(balance)} at the court</span>}
+                  {balance > 0 && <span class="price-split" hidden>₹{inr(advance)} now · ₹{inr(balance)} at court</span>}
                   {g.data.bookingLink ? (
                     <a class="btn btn-solid" href={g.data.bookingLink} target="_blank" rel="noopener">Book spot</a>
                   ) : (
