@@ -105,3 +105,68 @@ export async function gameInfo(req, gameId) {
   const list = r.ok ? await r.json() : [];
   return list.find((g) => g.id === gameId) || null;
 }
+
+// ---------- Paid-only booking: the spot is created by the server after payment ----------
+const DOCS = `projects/${PROJECT}/databases/(default)/documents`;
+async function fsCall(path, body) {
+  const r = await fetch(`https://firestore.googleapis.com/v1/${path}`, {
+    method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${await adminToken()}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok && r.status !== 404) throw new Error(j?.error?.message || `Firestore ${r.status}`);
+  return r.status === 404 ? null : j;
+}
+const plain = (doc) => doc ? Object.fromEntries(Object.entries(doc.fields || {}).map(([k, v]) => [k, val(v)])) : null;
+
+export async function gameCounts(gameId) {
+  return plain(await fsCall(`${DOCS}/games/${encodeURIComponent(gameId)}`)) || { booked: 0 };
+}
+
+async function playerShortName(uid) {
+  const p = plain(await fsCall(`${DOCS}/players/${encodeURIComponent(uid)}`)) || {};
+  const parts = String(p.name || 'Player').trim().split(/\s+/);
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0];
+}
+
+// Creates (or confirms) the caller's booking after a successful payment, counting the spot atomically.
+// Returns { ok } or { full: true } when the game filled up in the meantime (payment recorded for a refund).
+export async function confirmPaidBooking({ gameId, uid, spots, reserved = 0, paymentId, orderId, amount, full }) {
+  const bookingId = `${gameId}__${uid}`;
+  const now = new Date().toISOString();
+  const payFields = {
+    paid: { booleanValue: Boolean(full) },
+    status: { stringValue: 'confirmed' },
+    advancePaid: { integerValue: String(Math.round(amount / 100)) },
+    payMethod: { stringValue: 'razorpay' },
+    paymentId: { stringValue: paymentId || '' },
+    orderId: { stringValue: orderId },
+    amountPaid: { integerValue: String(amount) },
+    paidAt: { timestampValue: now },
+  };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { transaction } = await fsCall(`${DOCS}:beginTransaction`, {});
+    const q = `?transaction=${encodeURIComponent(transaction)}`;
+    const game = await fsCall(`${DOCS}/games/${encodeURIComponent(gameId)}${q}`);
+    const booking = await fsCall(`${DOCS}/bookings/${encodeURIComponent(bookingId)}${q}`);
+    const writes = [];
+    if (booking) {
+      const b = plain(booking);
+      if (b.orderId === orderId || b.advancePaid || b.paid) { await fsCall(`${DOCS}:rollback`, { transaction }); return { ok: true }; }
+      writes.push({ update: { name: `${DOCS}/bookings/${bookingId}`, fields: payFields }, updateMask: { fieldPaths: Object.keys(payFields) } });
+    } else {
+      const booked = Number(plain(game)?.booked || 0);
+      if (booked + Number(reserved) >= Number(spots)) {
+        await fsCall(`${DOCS}:rollback`, { transaction });
+        await fsCall(`${DOCS}/payments?documentId=${encodeURIComponent(orderId)}`, { fields: { gameId: { stringValue: gameId }, uid: { stringValue: uid }, paymentId: { stringValue: paymentId || '' }, amount: { integerValue: String(amount) }, needsRefund: { booleanValue: true }, at: { timestampValue: now } } }).catch(() => {});
+        return { full: true };
+      }
+      writes.push({ update: { name: `${DOCS}/games/${gameId}`, fields: { spots: { integerValue: String(spots) }, booked: { integerValue: String(booked + 1) } } } });
+      writes.push({ update: { name: `${DOCS}/bookings/${bookingId}`, fields: {
+        gameId: { stringValue: gameId }, uid: { stringValue: uid }, name: { stringValue: await playerShortName(uid) },
+        createdAt: { timestampValue: now }, ...payFields,
+      } }, currentDocument: { exists: false } });
+    }
+    try { await fsCall(`${DOCS}:commit`, { writes, transaction }); return { ok: true }; }
+    catch (e) { if (attempt === 2) throw e; }
+  }
+}

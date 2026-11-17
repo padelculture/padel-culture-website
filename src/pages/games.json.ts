@@ -2,6 +2,6 @@
 import { getCollection } from 'astro:content';
 import site from '../data/site.json';
 export async function GET() {
-  const games = (await getCollection('games')).map((g) => ({ id: g.id, title: g.data.title, price: g.data.price, advance: Math.min(g.data.price, g.data.advance ?? (site as { advanceAmount?: number }).advanceAmount ?? g.data.price), status: g.data.status, start: g.data.date.toISOString() }));
+  const games = (await getCollection('games')).map((g) => ({ id: g.id, title: g.data.title, price: g.data.price, advance: Math.min(g.data.price, g.data.advance ?? (site as { advanceAmount?: number }).advanceAmount ?? g.data.price), spots: g.data.spots, reserved: g.data.reserved || 0, status: g.data.status, start: g.data.date.toISOString() }));
   return new Response(JSON.stringify(games), { headers: { 'Content-Type': 'application/json' } });
 }

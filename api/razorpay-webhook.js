@@ -1,6 +1,6 @@
 // Backup confirmation straight from Razorpay (covers players who close the window before returning).
 // In Razorpay Dashboard → Webhooks: URL https://www.padelculture.in/api/razorpay-webhook, events: order.paid, secret = RAZORPAY_WEBHOOK_SECRET.
-import { send, readBody, markPaid, hmac, sameHex } from './_lib/pay.js';
+import { send, readBody, confirmPaidBooking, hmac, sameHex, gameInfo } from './_lib/pay.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -14,7 +14,12 @@ export default async function handler(req, res) {
     if (body.event === 'order.paid') {
       const order = body.payload?.order?.entity || {};
       const pay = body.payload?.payment?.entity || {};
-      if (order.notes?.bookingId) await markPaid(order.notes.bookingId, { paymentId: pay.id || '', orderId: order.id, amount: order.amount_paid || order.amount, full: (order.amount_paid || order.amount) >= Number(order.notes.price || 0) * 100 });
+      const n = order.notes || {};
+      if (n.gameId && n.uid) {
+        const game = await gameInfo(req, n.gameId);
+        const amount = order.amount_paid || order.amount;
+        await confirmPaidBooking({ gameId: n.gameId, uid: n.uid, spots: game?.spots ?? 99, reserved: game?.reserved || 0, paymentId: pay.id || '', orderId: order.id, amount, full: amount >= Number(n.price || 0) * 100 });
+      }
     }
     send(res, 200, { ok: true });
   } catch (e) {

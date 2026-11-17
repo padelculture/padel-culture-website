@@ -1,5 +1,6 @@
-// Creates a Razorpay order for the caller's own booking. POST { gameId } with Authorization: Bearer <Firebase ID token>.
-import { send, readBody, userFromRequest, getBooking, razorpay, configured, gameInfo } from './_lib/pay.js';
+// Creates a Razorpay order for a spot in a game. The spot itself is only created once payment succeeds.
+// POST { gameId } with Authorization: Bearer <Firebase ID token>.
+import { send, readBody, userFromRequest, getBooking, razorpay, configured, gameInfo, gameCounts } from './_lib/pay.js';
 import crypto from 'node:crypto';
 
 export default async function handler(req, res) {
@@ -10,17 +11,20 @@ export default async function handler(req, res) {
     if (!user) return send(res, 401, { error: 'Please log in again.' });
     const { gameId } = await readBody(req);
     const game = gameId && await gameInfo(req, gameId);
-    if (!game) return send(res, 404, { error: 'Game not found.' });
+    if (!game || game.status === 'cancelled') return send(res, 404, { error: 'Game not found.' });
     const bookingId = `${gameId}__${user.uid}`;
     const b = await getBooking(bookingId);
-    if (!b) return send(res, 404, { error: 'Book a spot first.' });
-    if (b.paid || b.advancePaid) return send(res, 409, { error: 'This spot is already confirmed.', paid: true });
+    if (b && (b.paid || b.advancePaid)) return send(res, 409, { error: 'Your spot is already confirmed.', paid: true });
+    if (!b) {
+      const c = await gameCounts(gameId);
+      if (game.status === 'full' || Number(c.booked || 0) + Number(game.reserved || 0) >= Number(game.spots)) return send(res, 409, { error: 'Sorry, this game just filled up. Join the waitlist.', full: true });
+    }
     const price = Number(game.price);
     const advance = Number(game.advance ?? price);
     const amount = Math.round(advance * 100);
     const order = await razorpay('/orders', { method: 'POST', body: JSON.stringify({
       amount, currency: 'INR',
-      receipt: 'pc_' + crypto.createHash('sha1').update(bookingId).digest('hex').slice(0, 30),
+      receipt: 'pc_' + crypto.createHash('sha1').update(bookingId + Date.now()).digest('hex').slice(0, 30),
       notes: { bookingId, uid: user.uid, gameId, price: String(price) },
     }) });
     send(res, 200, { orderId: order.id, amount, currency: 'INR', keyId: process.env.RAZORPAY_KEY_ID, title: game.title, phone: user.phone, balance: Math.max(0, price - advance) });

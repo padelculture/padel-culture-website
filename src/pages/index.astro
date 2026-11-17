@@ -495,10 +495,10 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
     document.querySelectorAll('.b-add').forEach((b) => b.addEventListener('click', () => {
       if (!fbm || !authReady) return;
       if (!me) { location.href = '/join?next=' + encodeURIComponent(PAY ? `/?book=${b.dataset.id}#game-${b.dataset.id}` : '/#games'); return; }
+      // With online payment on, the spot is only created once the payment goes through.
+      if (PAY) { startPay(b.dataset.id, b.closest('.fixture'), b); return; }
       confirming = b.dataset.id;
       paint();
-      // With online payment on, one tap books the spot and opens the payment straight away.
-      if (PAY) b.closest('.fixture').querySelector('.b-confirm').click();
     }));
     document.querySelectorAll('.b-back').forEach((b) => b.addEventListener('click', () => { confirming = null; paint(); }));
     document.querySelectorAll('.b-confirm').forEach((b) => b.addEventListener('click', async () => {
@@ -542,12 +542,13 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
       if (!r.ok) throw Object.assign(new Error(j.error || 'Payment error'), { paid: j.paid });
       return j;
     }
-    async function startPay(id, row) {
+    async function startPay(id, row, trigger) {
       const errEl = row.querySelector('.pay-err');
-      const btn = row.querySelector('.b-pay');
+      const btn = trigger || row.querySelector('.b-pay');
+      const label = btn ? btn.textContent : '';
       errEl.hidden = true;
       if (btn) { btn.disabled = true; btn.textContent = 'Opening payment…'; }
-      const reset = () => { if (btn) { btn.disabled = false; btn.textContent = `Pay ₹${Number(btn.dataset.price).toLocaleString('en-IN')} to confirm`; } };
+      const reset = () => { if (btn) { btn.disabled = false; btn.textContent = label; } };
       try {
         await loadRzp();
         const o = await api('/api/pay-order', { gameId: id });
@@ -561,7 +562,9 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
             try {
               if (btn) btn.textContent = 'Confirming…';
               await api('/api/pay-verify', { orderId: resp.razorpay_order_id, paymentId: resp.razorpay_payment_id, signature: resp.razorpay_signature });
+              if (!mine.has(id)) { mine.add(id); booked[id] = (booked[id] || 0) + 1; }
               paidSet.add(id); if (!o.balance) fullPaid.add(id);
+              fbm.leaveWaitlist(me.uid, id).catch(() => {});
             } catch (ex) { errEl.textContent = ex.message; errEl.hidden = false; }
             reset(); paint();
           },
@@ -570,7 +573,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
         rzp.open();
       } catch (ex) {
         console.error(ex);
-        if (ex.paid) { paidSet.add(id); paint(); }
+        if (ex.paid) { mine.add(id); paidSet.add(id); paint(); }
         else { errEl.textContent = ex.message; errEl.hidden = false; }
         reset();
       }
@@ -741,8 +744,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
             history.replaceState(null, '', location.pathname + location.hash);
             const row = document.getElementById('game-' + want);
             const add = row && row.querySelector('.b-add');
-            if (mine.has(want) && !paidSet.has(want)) startPay(want, row);
-            else if (add && !add.hidden) add.click();
+            if (row && !paidSet.has(want) && ((add && !add.hidden) || mine.has(want))) startPay(want, row, add && !add.hidden ? add : null);
           }
         });
       } catch (e) { console.error(e); }
