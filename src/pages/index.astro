@@ -427,7 +427,11 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
     const mine = new Set();
     const paidSet = new Set();   // my bookings that are confirmed (advance or full fee paid)
     const fullPaid = new Set();  // my bookings paid in full
-    const PAY = $('board').dataset.pay === '1';
+    // ?paytest=1 switches online payment on for this browser only (for testing before going live); ?paytest=0 switches it off.
+    const payTest = new URLSearchParams(location.search).get('paytest');
+    try { if (payTest === '1') localStorage.setItem('pc-paytest', '1'); if (payTest === '0') localStorage.removeItem('pc-paytest'); } catch (e) {}
+    let testPay = false; try { testPay = localStorage.getItem('pc-paytest') === '1'; } catch (e) {}
+    const PAY = $('board').dataset.pay === '1' || testPay;
     if (PAY) {
       document.querySelectorAll('.c-host').forEach((e) => (e.hidden = true));
       document.querySelectorAll('.c-pay').forEach((e) => (e.hidden = false));
