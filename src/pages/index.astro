@@ -174,7 +174,7 @@ function to12(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim()); if (!
                 </div>
                 <p class="booked-sub" hidden>Your spot will be confirmed once you pay. The host will message you on WhatsApp with the payment details.</p>
                 <p class="pay-err err" hidden></p>
-                {balance > 0 && <p class="book-terms" hidden>Can't make it? Cancel 24 hrs before and your ₹{inr(advance)} carries over to your next game. Emergencies happen, so just let us know: your first 2 last-minute cancellations carry over too.</p>}
+                {balance > 0 && <p class="book-terms" hidden>Can't make it? Just let us know and your ₹{inr(advance)} carries over to your next game. Emergencies happen, so this works for up to 2 cancellations.</p>}
               </li>
             );
           })}
